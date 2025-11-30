@@ -15,13 +15,13 @@ export default function App({ Component, pageProps }: AppProps) {
         50% { opacity: 0.5; }
       }
       select:focus, input:focus {
-        border-color: #0066CC !important;
-        box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1) !important;
+        border-color: #d9823f !important;
+        box-shadow: 0 0 0 3px rgba(217, 130, 63, 0.1) !important;
       }
       button:hover:not(:disabled) {
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3) !important;
-        background-color: #0052a3 !important;
+        box-shadow: 0 4px 12px rgba(217, 130, 63, 0.3) !important;
+        background-color: #c5722f !important;
       }
       button:disabled {
         opacity: 0.6;
@@ -48,7 +48,7 @@ export default function App({ Component, pageProps }: AppProps) {
         transition: transform 0.3s;
       }
       input[type="checkbox"]:checked {
-        background-color: #0066CC !important;
+        background-color: #d9823f !important;
       }
       input[type="checkbox"]:checked::before {
         transform: translateX(20px);

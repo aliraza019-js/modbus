@@ -1,33 +1,28 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import Icon from '@mdi/react';
 import { 
   mdiCog, 
   mdiChartLine, 
-  mdiDatabase, 
-  mdiDownload, 
-  mdiLightningBolt, 
-  mdiPowerPlug,
-  mdiMapMarker,
-  mdiNumeric,
   mdiRefresh,
   mdiClockOutline,
   mdiAlert,
   mdiChartBar,
-  mdiInformation,
-  mdiMagnify
+  mdiCalendarClock,
+  mdiFactory
 } from '@mdi/js';
-import ModbusLogo from '../components/ModbusLogo';
+import DooterLogo from '../components/DooterLogo';
 
-interface ModbusValue {
+interface RegisterValue {
   address: number;
   rawValue: number;
 }
 
-interface ModbusResponse {
+interface RegisterResponse {
   success: boolean;
   type: string;
-  values: ModbusValue[];
+  values: RegisterValue[];
   timestamp: string;
   error?: string;
 }
@@ -52,23 +47,55 @@ const getApiUrl = () => {
 };
 
 const API_URL = getApiUrl();
-// Ducorr primary color - professional industrial blue
-const DUCORR_PRIMARY = '#0066CC';
+// Primary color
+const DUCORR_PRIMARY = '#d9823f';
 
 export default function Home() {
-  const [data, setData] = useState<ModbusResponse | null>(null);
+  const router = useRouter();
+  const [data, setData] = useState<RegisterResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshInterval, setRefreshInterval] = useState(2000);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connecting');
+  const [currentTime, setCurrentTime] = useState<string>('');
   const [config, setConfig] = useState({
     type: 'holding',
     address: 0,
     quantity: 1,
+    autoRefresh: true,
+    refreshInterval: 2000,
   });
 
-  const fetchModbusData = async () => {
+  // Update current time on client side only to avoid hydration errors
+  useEffect(() => {
+    const updateTime = () => {
+      setCurrentTime(new Date().toLocaleString());
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('viewSettings');
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings);
+        setConfig(prev => ({
+          ...prev,
+          type: settings.registerType || prev.type,
+          address: settings.startAddress || prev.address,
+          quantity: settings.addressLength || prev.quantity,
+          autoRefresh: settings.autoRefresh !== undefined ? settings.autoRefresh : prev.autoRefresh,
+          refreshInterval: settings.refreshInterval || prev.refreshInterval,
+        }));
+      } catch (err) {
+        console.error('Failed to load settings:', err);
+      }
+    }
+  }, []);
+
+  const fetchRegisterData = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -87,13 +114,13 @@ export default function Home() {
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 
-      const result: ModbusResponse = await response.json();
+      const result: RegisterResponse = await response.json();
 
       if (result.success) {
         setData(result);
         setConnectionStatus('connected');
       } else {
-        setError(result.error || 'Failed to read Modbus data');
+        setError(result.error || 'Failed to read register data');
         setConnectionStatus('disconnected');
       }
     } catch (err: any) {
@@ -106,35 +133,19 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetchModbusData();
+    fetchRegisterData();
 
-    if (autoRefresh) {
-      const interval = setInterval(fetchModbusData, refreshInterval);
+    if (config.autoRefresh) {
+      const interval = setInterval(fetchRegisterData, config.refreshInterval);
       return () => clearInterval(interval);
     }
-  }, [autoRefresh, refreshInterval, config]);
-
-  const handleConfigChange = (field: string, value: string | number) => {
-    setConfig(prev => ({ ...prev, [field]: value }));
-  };
-
-  const getRegisterTypeInfo = (type: string) => {
-    const types: { [key: string]: { name: string; icon: string; color: string; description: string } } = {
-      holding: { name: 'Holding Registers', icon: mdiDatabase, color: DUCORR_PRIMARY, description: 'Read/write analog values' },
-      input: { name: 'Input Registers', icon: mdiDownload, color: '#2c3e50', description: 'Read-only analog inputs' },
-      coil: { name: 'Coils', icon: mdiLightningBolt, color: '#34495e', description: 'Read/write digital outputs' },
-      discrete: { name: 'Discrete Inputs', icon: mdiPowerPlug, color: '#1a1a1a', description: 'Read-only digital inputs' },
-    };
-    return types[type] || types.holding;
-  };
-
-  const typeInfo = getRegisterTypeInfo(config.type);
+  }, [config]);
 
   return (
     <>
       <Head>
-        <title>Modbus Data Reader | Industrial Monitoring</title>
-        <meta name="description" content="Real-time Modbus data monitoring" />
+        <title>Data Monitoring | Industrial Monitoring</title>
+        <meta name="description" content="Real-time industrial data monitoring" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
@@ -145,158 +156,70 @@ export default function Home() {
             <div style={styles.headerTop}>
               <div style={styles.titleContainer}>
                 <div style={styles.logoContainer}>
-                  <ModbusLogo width={180} height={60} showText={true} />
+                  <DooterLogo width={60} height={60} showText={false} />
                 </div>
                 <h1 style={styles.title}>
-                  Data Reader
+                  <span style={styles.titleText}>Equipment Monitoring</span>
                 </h1>
               </div>
-              <div style={styles.statusBadge}>
-                <div 
-                  style={{
-                    ...styles.statusDot,
-                    backgroundColor: connectionStatus === 'connected' ? '#10b981' : 
-                                   connectionStatus === 'connecting' ? '#f59e0b' : '#ef4444'
-                  }}
-                />
-                <span style={styles.statusText}>
-                  {connectionStatus === 'connected' ? 'Connected' : 
-                   connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
-                </span>
+              <div style={styles.headerActions}>
+                <div style={styles.statusBadge}>
+                  <div 
+                    style={{
+                      ...styles.statusDot,
+                      backgroundColor: connectionStatus === 'connected' ? '#10b981' : 
+                                     connectionStatus === 'connecting' ? '#f59e0b' : '#ef4444'
+                    }}
+                  />
+                  <span style={styles.statusText}>
+                    {connectionStatus === 'connected' ? 'Connected' : 
+                     connectionStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
+                  </span>
+                </div>
+                <button 
+                  onClick={() => router.push('/settings')}
+                  style={styles.settingsButton}
+                  title="Settings"
+                >
+                  <Icon path={mdiCog} size={1.2} color="white" />
+                  Settings
+                </button>
               </div>
             </div>
-            <p style={styles.subtitle}>Real-time industrial automation monitoring</p>
-            <div style={styles.deviceInfo}>
-              <div style={styles.apiInfo}>
-                <span style={styles.apiLabel}>API:</span>
-                <code style={styles.apiCode}>{API_URL}</code>
-              </div>
-              <div style={styles.deviceConfig}>
-                <span style={styles.deviceLabel}>Device IP:</span>
-                <code style={styles.deviceValue}>192.168.100.40</code>
-                <span style={styles.deviceLabel}>Slave ID:</span>
-                <code style={styles.deviceValue}>1</code>
-              </div>
-            </div>
+            <p style={styles.subtitle}>View real-time equipment output and operating parameters</p>
           </div>
         </header>
 
-        {/* Configuration Panel */}
-        <section style={styles.configPanel}>
-          <div style={styles.configHeader}>
-            <h2 style={styles.sectionTitle}>
-              <Icon path={mdiCog} size={1.2} color={DUCORR_PRIMARY} />
-              Configuration
-            </h2>
-          </div>
-          
-          <div style={styles.configGrid}>
-            <div style={styles.configCard}>
-              <label style={styles.label}>
-                <Icon path={typeInfo.icon} size={1} color={DUCORR_PRIMARY} />
-                Register Type
-              </label>
-              <select
-                value={config.type}
-                onChange={(e) => handleConfigChange('type', e.target.value)}
-                style={styles.select}
-              >
-                <option value="holding">Holding Registers (4xxxx)</option>
-                <option value="input">Input Registers (3xxxx)</option>
-                <option value="coil">Coils (0xxxx)</option>
-                <option value="discrete">Discrete Inputs (1xxxx)</option>
-              </select>
-              <p style={styles.helperText}>{typeInfo.description}</p>
-            </div>
-
-            <div style={styles.configCard}>
-              <label style={styles.label}>
-                <Icon path={mdiMapMarker} size={1} color={DUCORR_PRIMARY} />
-                Start Address
-              </label>
-              <input
-                type="number"
-                value={config.address}
-                onChange={(e) => handleConfigChange('address', parseInt(e.target.value) || 0)}
-                style={styles.input}
-                min="0"
-                placeholder="0"
-              />
-            </div>
-
-            <div style={styles.configCard}>
-              <label style={styles.label}>
-                <Icon path={mdiNumeric} size={1} color={DUCORR_PRIMARY} />
-                Quantity
-              </label>
-              <input
-                type="number"
-                value={config.quantity}
-                onChange={(e) => handleConfigChange('quantity', parseInt(e.target.value) || 1)}
-                style={styles.input}
-                min="1"
-                max="125"
-                placeholder="1"
-              />
-            </div>
-          </div>
-
-          <div style={styles.controls}>
-            <button 
-              onClick={fetchModbusData} 
-              style={styles.button}
-              disabled={loading}
-            >
-              <Icon path={mdiRefresh} size={1} color="white" />
-              {loading ? 'Refreshing...' : 'Refresh Now'}
-            </button>
-            
-            <label style={styles.toggleLabel}>
-              <input
-                type="checkbox"
-                checked={autoRefresh}
-                onChange={(e) => setAutoRefresh(e.target.checked)}
-                style={styles.toggle}
-              />
-              <span style={styles.toggleText}>Auto Refresh</span>
-            </label>
-            
-            {autoRefresh && (
-              <div style={styles.intervalControl}>
-                <label style={styles.intervalLabel}>Interval:</label>
-                <input
-                  type="number"
-                  value={refreshInterval}
-                  onChange={(e) => setRefreshInterval(parseInt(e.target.value) || 2000)}
-                  style={styles.intervalInput}
-                  min="500"
-                  step="500"
-                />
-                <span style={styles.intervalUnit}>ms</span>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Live Readings Panel */}
+        {/* Equipment Data Display */}
         <section style={styles.dataPanel}>
           <div style={styles.dataHeader}>
-            <h2 style={styles.sectionTitle}>
-              <Icon path={mdiChartLine} size={1.2} color={DUCORR_PRIMARY} />
-              Live Readings
-            </h2>
-            {data && data.success && (
-              <div style={styles.timestamp}>
-                <Icon path={mdiClockOutline} size={0.9} color="#666" />
-                {new Date(data.timestamp).toLocaleTimeString()}
+            <div style={styles.dataHeaderLeft}>
+              <h2 style={styles.sectionTitle}>
+                <Icon path={mdiFactory} size={1.2} color={DUCORR_PRIMARY} />
+                Equipment Output
+              </h2>
+              <div style={styles.dateTimeDisplay}>
+                <Icon path={mdiCalendarClock} size={1} color="#666" />
+                <span style={styles.dateTimeText}>
+                  {currentTime || 'Loading...'}
+                </span>
               </div>
-            )}
+            </div>
+            <button 
+              onClick={fetchRegisterData} 
+              style={styles.refreshButton}
+              disabled={loading}
+              title="Refresh data"
+            >
+              <Icon path={mdiRefresh} size={1} color="white" />
+              {loading ? 'Updating...' : 'Refresh'}
+            </button>
           </div>
           
           {loading && !data && (
             <div style={styles.loadingContainer}>
               <div style={styles.spinner}></div>
-              <p style={styles.loadingText}>Connecting to Modbus device...</p>
+              <p style={styles.loadingText}>Connecting to equipment...</p>
             </div>
           )}
 
@@ -306,103 +229,33 @@ export default function Home() {
               <div style={styles.errorContent}>
                 <h3 style={styles.errorTitle}>Connection Error</h3>
                 <p style={styles.errorMessage}>{error}</p>
+                <p style={styles.errorHint}>Please check your settings or contact support if the problem persists.</p>
               </div>
             </div>
           )}
 
           {data && data.success && (
             <div style={styles.dataContainer}>
-              <div style={styles.metadataCard}>
-                <div style={styles.metadataItem}>
-                  <span style={styles.metadataLabel}>Type:</span>
-                  <span style={{...styles.metadataValue, color: typeInfo.color, display: 'flex', alignItems: 'center', gap: '8px'}}>
-                    <Icon path={typeInfo.icon} size={0.9} color={typeInfo.color} />
-                    {typeInfo.name}
-                  </span>
-                </div>
-                <div style={styles.metadataItem}>
-                  <span style={styles.metadataLabel}>Registers:</span>
-                  <span style={styles.metadataValue}>{data.values.length}</span>
-                </div>
-              </div>
-
               <div style={styles.valuesGrid}>
                 {data.values.map((value, index) => (
                   <div key={index} style={styles.valueCard}>
                     <div style={styles.valueCardHeader}>
                       <Icon path={mdiChartBar} size={1.2} color={DUCORR_PRIMARY} />
-                      <span style={styles.valueAddress}>Address {value.address}</span>
+                      <span style={styles.valueLabel}>Parameter {index + 1}</span>
                     </div>
                     <div style={styles.valueContent}>
                       <div style={styles.valueRaw}>
                         {value.rawValue.toLocaleString()}
                       </div>
-                      <div style={styles.valueFormats}>
-                        <div style={styles.valueFormat}>
-                          <span style={styles.formatLabel}>HEX</span>
-                          <code style={styles.formatValue}>
-                            0x{value.rawValue.toString(16).toUpperCase().padStart(4, '0')}
-                          </code>
-                        </div>
-                        <div style={styles.valueFormat}>
-                          <span style={styles.formatLabel}>BIN</span>
-                          <code style={styles.formatValue}>
-                            {value.rawValue.toString(2).padStart(16, '0').match(/.{1,4}/g)?.join(' ')}
-                          </code>
-                        </div>
+                      <div style={styles.valueSubtext}>
+                        Last updated: {new Date(data.timestamp).toLocaleTimeString()}
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-
-              <details style={styles.rawData}>
-                <summary style={styles.summary}>
-                  <Icon path={mdiMagnify} size={1} color="#333" />
-                  View Raw JSON Response
-                </summary>
-                <pre style={styles.pre}>{JSON.stringify(data, null, 2)}</pre>
-              </details>
             </div>
           )}
-        </section>
-
-        {/* Info Panel */}
-        <section style={styles.infoPanel}>
-          <h3 style={styles.infoTitle}>
-            <Icon path={mdiInformation} size={1.2} color={DUCORR_PRIMARY} />
-            About Modbus Registers
-          </h3>
-          <div style={styles.infoGrid}>
-            <div style={styles.infoCard}>
-              <div style={styles.infoCardIcon}>
-                <Icon path={mdiDatabase} size={1.5} color="white" />
-              </div>
-              <h4 style={styles.infoCardTitle}>Holding Registers (4xxxx)</h4>
-              <p style={styles.infoCardText}>Read/write analog values</p>
-            </div>
-            <div style={styles.infoCard}>
-              <div style={styles.infoCardIcon}>
-                <Icon path={mdiDownload} size={1.5} color="white" />
-              </div>
-              <h4 style={styles.infoCardTitle}>Input Registers (3xxxx)</h4>
-              <p style={styles.infoCardText}>Read-only analog inputs</p>
-            </div>
-            <div style={styles.infoCard}>
-              <div style={styles.infoCardIcon}>
-                <Icon path={mdiLightningBolt} size={1.5} color="white" />
-              </div>
-              <h4 style={styles.infoCardTitle}>Coils (0xxxx)</h4>
-              <p style={styles.infoCardText}>Read/write digital outputs</p>
-            </div>
-            <div style={styles.infoCard}>
-              <div style={styles.infoCardIcon}>
-                <Icon path={mdiPowerPlug} size={1.5} color="white" />
-              </div>
-              <h4 style={styles.infoCardTitle}>Discrete Inputs (1xxxx)</h4>
-              <p style={styles.infoCardText}>Read-only digital inputs</p>
-            </div>
-          </div>
         </section>
       </div>
     </>
@@ -436,24 +289,60 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexWrap: 'wrap',
     gap: '15px',
   },
+  headerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '15px',
+    flexWrap: 'wrap',
+  },
+  settingsButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '12px 24px',
+    background: DUCORR_PRIMARY,
+    color: 'white',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '15px',
+    fontWeight: '600',
+    transition: 'all 0.3s ease',
+  },
   titleContainer: {
     display: 'flex',
     alignItems: 'center',
-    gap: '20px',
+    gap: '15px',
     flexWrap: 'wrap',
   },
   logoContainer: {
     display: 'flex',
     alignItems: 'center',
+    flexShrink: 0,
+    height: '60px',
   },
   title: {
     margin: 0,
     fontSize: '2.5rem',
     fontWeight: '700',
     color: '#000000',
+    lineHeight: '1.2',
+    whiteSpace: 'nowrap',
     display: 'flex',
     alignItems: 'center',
-    gap: '15px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+  },
+  brandName: {
+    fontSize: '2.5rem',
+    fontWeight: '700',
+    color: '#000000',
+    letterSpacing: '0.5px',
+  },
+  titleText: {
+    fontSize: '2.5rem',
+    fontWeight: '700',
+    color: '#000000',
+    letterSpacing: '0.5px',
   },
   statusBadge: {
     display: 'flex',
@@ -475,67 +364,24 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#333',
   },
   subtitle: {
-    margin: '0 0 15px 0',
+    margin: '0',
     color: '#666',
     fontSize: '1.1rem',
     fontWeight: '400',
   },
-  deviceInfo: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-    marginTop: '15px',
-  },
-  apiInfo: {
+  refreshButton: {
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    padding: '10px 15px',
-    backgroundColor: '#f8f9fa',
+    gap: '8px',
+    padding: '12px 24px',
+    background: DUCORR_PRIMARY,
+    color: 'white',
+    border: 'none',
     borderRadius: '8px',
-    fontSize: '14px',
-  },
-  apiLabel: {
-    color: '#666',
-    fontWeight: '500',
-  },
-  apiCode: {
-    color: '#000000',
-    fontFamily: 'monospace',
+    cursor: 'pointer',
+    fontSize: '15px',
     fontWeight: '600',
-  },
-  deviceConfig: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '15px',
-    padding: '10px 15px',
-    backgroundColor: '#e8f4f8',
-    borderRadius: '8px',
-    fontSize: '14px',
-    flexWrap: 'wrap',
-  },
-  deviceLabel: {
-    color: '#666',
-    fontWeight: '500',
-  },
-  deviceValue: {
-    color: DUCORR_PRIMARY,
-    fontFamily: 'monospace',
-    fontWeight: '600',
-    padding: '2px 8px',
-    backgroundColor: 'white',
-    borderRadius: '4px',
-  },
-  configPanel: {
-    background: '#ffffff',
-    borderRadius: '12px',
-    padding: '30px',
-    marginBottom: '30px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-    border: '1px solid #e0e0e0',
-  },
-  configHeader: {
-    marginBottom: '25px',
+    transition: 'all 0.3s ease',
   },
   sectionTitle: {
     margin: 0,
@@ -669,6 +515,26 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexWrap: 'wrap',
     gap: '15px',
   },
+  dataHeaderLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '20px',
+    flexWrap: 'wrap',
+  },
+  dateTimeDisplay: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 16px',
+    backgroundColor: '#f0f0f0',
+    borderRadius: '10px',
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#666',
+  },
+  dateTimeText: {
+    fontFamily: 'monospace',
+  },
   timestamp: {
     display: 'flex',
     alignItems: 'center',
@@ -719,10 +585,16 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#dc2626',
   },
   errorMessage: {
-    margin: 0,
+    margin: '0 0 8px 0',
     fontSize: '14px',
     color: '#991b1b',
     lineHeight: '1.6',
+  },
+  errorHint: {
+    margin: 0,
+    fontSize: '12px',
+    color: '#b91c1c',
+    fontStyle: 'italic',
   },
   dataContainer: {
     marginTop: '20px',
@@ -770,12 +642,15 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: '10px',
     marginBottom: '15px',
   },
-  valueAddress: {
-    fontSize: '12px',
+  valueLabel: {
+    fontSize: '14px',
     color: '#666',
     fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: '1px',
+  },
+  valueSubtext: {
+    fontSize: '12px',
+    color: '#999',
+    marginTop: '8px',
   },
   valueContent: {
     display: 'flex',

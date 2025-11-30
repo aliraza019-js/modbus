@@ -2,6 +2,15 @@
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone', // For Docker deployment
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'www.ducorr.com',
+        pathname: '/**',
+      },
+    ],
+  },
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || getApiUrl(),
   },
