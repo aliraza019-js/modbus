@@ -17,7 +17,7 @@ async function bootstrap() {
     }
     
     // Default to localhost for local development
-    return 'http://localhost:3000';
+    return 'http://localhost:3001';
   };
 
   const frontendUrl = getFrontendUrl();
@@ -36,7 +36,7 @@ async function bootstrap() {
     }),
   );
 
-  const port = process.env.PORT || 3001;
+  const port = process.env.PORT || 3002;
   await app.listen(port);
   console.log(`🚀 Modbus Backend is running on: http://localhost:${port}`);
   console.log(`📡 CORS enabled for: ${frontendUrl}`);

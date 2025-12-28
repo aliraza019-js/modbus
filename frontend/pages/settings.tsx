@@ -16,7 +16,8 @@ import {
   mdiInformation,
   mdiCheckCircle,
   mdiAlertCircle,
-  mdiChartLine
+  mdiChartLine,
+  mdiLan
 } from '@mdi/js';
 import DooterLogo from '../components/DooterLogo';
 
@@ -31,7 +32,7 @@ const getApiUrl = () => {
       return 'https://ap-modbus.ducorr.com';
     }
   }
-  return 'http://localhost:3001';
+  return 'http://localhost:3002';
 };
 
 const API_URL = getApiUrl();
@@ -40,6 +41,7 @@ const DUCORR_PRIMARY = '#d9823f';
 export default function Settings() {
   const router = useRouter();
   const [deviceIp, setDeviceIp] = useState('192.168.100.49');
+  const [devicePort, setDevicePort] = useState(5000);
   const [slaveId, setSlaveId] = useState(1);
   const [registerType, setRegisterType] = useState('holding');
   const [startAddress, setStartAddress] = useState(0);
@@ -57,6 +59,7 @@ export default function Settings() {
           const result = await response.json();
           if (result.success && result.config) {
             setDeviceIp(result.config.host || '192.168.100.49');
+            setDevicePort(result.config.port || 5000);
             setSlaveId(result.config.slaveId || 1);
           }
         }
@@ -78,12 +81,15 @@ export default function Settings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           host: deviceIp,
+          port: devicePort,
           slaveId: slaveId,
         }),
       });
 
       if (!configResponse.ok) {
-        throw new Error('Failed to save device configuration');
+        const errorData = await configResponse.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.message || 'Failed to save device configuration';
+        throw new Error(errorMessage);
       }
 
       // Save view settings to localStorage
@@ -104,7 +110,17 @@ export default function Settings() {
       }, 2000);
     } catch (err: any) {
       setSaveStatus('error');
-      setSaveMessage(err.message || 'Failed to save settings');
+      let errorMessage = 'Failed to save settings';
+      
+      if (err.message) {
+        errorMessage = err.message;
+      } else if (err.name === 'TypeError' && err.message?.includes('fetch')) {
+        errorMessage = 'Network error: Unable to connect to the server. Please check your connection.';
+      } else if (err.name === 'NetworkError' || err.message?.includes('Failed to fetch')) {
+        errorMessage = 'Network error: Unable to reach the server. Please check if the backend is running.';
+      }
+      
+      setSaveMessage(errorMessage);
     }
   };
 
@@ -161,6 +177,22 @@ export default function Settings() {
                   placeholder="192.168.100.49"
                 />
                 <p style={styles.helperText}>IP address of the equipment</p>
+              </div>
+
+              <div style={styles.settingItem}>
+                <label style={styles.label}>
+                  <Icon path={mdiLan} size={1} color={DUCORR_PRIMARY} />
+                  Device Port
+                </label>
+                <input
+                  type="number"
+                  value={devicePort}
+                  onChange={(e) => setDevicePort(parseInt(e.target.value) || 5000)}
+                  style={styles.input}
+                  min="1"
+                  max="65535"
+                />
+                <p style={styles.helperText}>Port number for Modbus TCP connection (default: 5000)</p>
               </div>
 
               <div style={styles.settingItem}>

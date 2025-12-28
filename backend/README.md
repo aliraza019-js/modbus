@@ -27,8 +27,8 @@ Create a `.env` file in the `backend` directory:
 
 ```env
 # Server Configuration
-PORT=3001
-FRONTEND_URL=http://localhost:3000
+PORT=3002
+FRONTEND_URL=http://localhost:3001
 
 # Modbus Configuration
 # IP Range: 192.168.100.1 to 192.168.100.255

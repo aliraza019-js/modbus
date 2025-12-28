@@ -62,9 +62,10 @@ export class ModbusService implements OnModuleInit, OnModuleDestroy {
 
   private loadConfig(): DeviceConfig {
     const host = this.configService.get<string>('MODBUS_HOST', '192.168.100.40');
-    const port = this.configService.get<number>('MODBUS_PORT', 5000); // Changed to 5000
-    const slaveId = this.configService.get<number>('MODBUS_SLAVE_ID', 1);
-    const timeout = this.configService.get<number>('MODBUS_TIMEOUT', 3000); // Increased to 3s
+    // Parse numeric values from environment (they come as strings)
+    const port = parseInt(this.configService.get<string>('MODBUS_PORT', '5000'), 10) || 5000;
+    const slaveId = parseInt(this.configService.get<string>('MODBUS_SLAVE_ID', '1'), 10) || 1;
+    const timeout = parseInt(this.configService.get<string>('MODBUS_TIMEOUT', '3000'), 10) || 3000;
 
     return {
       host,

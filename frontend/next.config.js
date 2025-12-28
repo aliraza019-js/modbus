@@ -25,7 +25,7 @@ function getApiUrl() {
   }
   
   // Default to localhost for local development
-  return 'http://localhost:3001';
+  return 'http://localhost:3002';
 }
 
 module.exports = nextConfig

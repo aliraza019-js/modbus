@@ -43,7 +43,7 @@ const getApiUrl = () => {
   }
   
   // Default to localhost for local development
-  return 'http://localhost:3001';
+  return 'http://localhost:3002';
 };
 
 const API_URL = getApiUrl();
@@ -124,7 +124,7 @@ export default function Home() {
         setConnectionStatus('disconnected');
       }
     } catch (err: any) {
-      setError(err.message || 'Connection error. Make sure the backend is running on port 3001.');
+      setError(err.message || 'Connection error. Make sure the backend is running on port 3002.');
       setData(null);
       setConnectionStatus('disconnected');
     } finally {
