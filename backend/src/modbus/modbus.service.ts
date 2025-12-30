@@ -65,7 +65,8 @@ export class ModbusService implements OnModuleInit, OnModuleDestroy {
     // Parse numeric values from environment (they come as strings)
     const port = parseInt(this.configService.get<string>('MODBUS_PORT', '5000'), 10) || 5000;
     const slaveId = parseInt(this.configService.get<string>('MODBUS_SLAVE_ID', '1'), 10) || 1;
-    const timeout = parseInt(this.configService.get<string>('MODBUS_TIMEOUT', '3000'), 10) || 3000;
+    // Increased timeout to 5000ms for better compatibility with slower devices (Modscan32 default is often higher)
+    const timeout = parseInt(this.configService.get<string>('MODBUS_TIMEOUT', '5000'), 10) || 5000;
 
     return {
       host,
@@ -169,6 +170,9 @@ export class ModbusService implements OnModuleInit, OnModuleDestroy {
     try {
       const client = await this.getClient(true); // Force new connection
       
+      // Ensure slave ID is set (double-check)
+      client.setID(this.config.slaveId);
+      
       // Try to read a single holding register at address 0 as a test
       try {
         await client.readHoldingRegisters(0, 1);
@@ -185,6 +189,7 @@ export class ModbusService implements OnModuleInit, OnModuleDestroy {
         // Connection established but read failed - might be address issue
         this.connectionStatus.connected = true;
         this.connectionStatus.lastConnected = new Date();
+        this.logger.warn(`Test read failed but connection is established: ${readError.message}`);
         return {
           success: true,
           message: `Connected to device but test read failed (address might be invalid): ${readError.message}`,
@@ -193,6 +198,7 @@ export class ModbusService implements OnModuleInit, OnModuleDestroy {
     } catch (error: any) {
       this.connectionStatus.connected = false;
       this.connectionStatus.lastError = error.message;
+      this.logger.error(`Connection test failed: ${error.message}`);
       return {
         success: false,
         message: `Connection failed: ${error.message}`,
@@ -217,12 +223,18 @@ export class ModbusService implements OnModuleInit, OnModuleDestroy {
     try {
       this.logger.log(`Connecting to Modbus TCP device at ${this.config.host}:${this.config.port}...`);
       
+      // Set timeout BEFORE connecting (important for slow devices)
+      this.client.setTimeout(this.config.timeout);
+      
       await this.client.connectTCP(this.config.host, {
         port: this.config.port,
       });
 
+      // Set slave ID immediately after connection (critical for Modbus TCP)
       this.client.setID(this.config.slaveId);
-      this.client.setTimeout(this.config.timeout);
+
+      // Small delay to ensure connection is fully established (some devices need this)
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       this.connectionStatus.connected = true;
       this.connectionStatus.lastConnected = new Date();
@@ -327,6 +339,8 @@ export class ModbusService implements OnModuleInit, OnModuleDestroy {
   ): Promise<number[]> {
     return this.executeWithRetry(async () => {
       const client = await this.getClient();
+      // Ensure slave ID is set before each operation (some devices require this)
+      client.setID(this.config.slaveId);
       const result = await client.readHoldingRegisters(startAddress, quantity);
       return result.data;
     }, 'readHoldingRegisters');
@@ -338,6 +352,8 @@ export class ModbusService implements OnModuleInit, OnModuleDestroy {
   ): Promise<number[]> {
     return this.executeWithRetry(async () => {
       const client = await this.getClient();
+      // Ensure slave ID is set before each operation
+      client.setID(this.config.slaveId);
       const result = await client.readInputRegisters(startAddress, quantity);
       return result.data;
     }, 'readInputRegisters');
@@ -346,6 +362,8 @@ export class ModbusService implements OnModuleInit, OnModuleDestroy {
   async readCoils(startAddress: number, quantity: number): Promise<boolean[]> {
     return this.executeWithRetry(async () => {
       const client = await this.getClient();
+      // Ensure slave ID is set before each operation
+      client.setID(this.config.slaveId);
       const result = await client.readCoils(startAddress, quantity);
       return result.data;
     }, 'readCoils');
@@ -357,6 +375,8 @@ export class ModbusService implements OnModuleInit, OnModuleDestroy {
   ): Promise<boolean[]> {
     return this.executeWithRetry(async () => {
       const client = await this.getClient();
+      // Ensure slave ID is set before each operation
+      client.setID(this.config.slaveId);
       const result = await client.readDiscreteInputs(startAddress, quantity);
       return result.data;
     }, 'readDiscreteInputs');
@@ -455,6 +475,8 @@ export class ModbusService implements OnModuleInit, OnModuleDestroy {
   ): Promise<boolean> {
     return this.executeWithRetry(async () => {
       const client = await this.getClient();
+      // Ensure slave ID is set before each operation
+      client.setID(this.config.slaveId);
       await client.writeRegister(address, value);
       return true;
     }, 'writeHoldingRegister');
@@ -463,6 +485,8 @@ export class ModbusService implements OnModuleInit, OnModuleDestroy {
   async writeCoil(address: number, value: boolean): Promise<boolean> {
     return this.executeWithRetry(async () => {
       const client = await this.getClient();
+      // Ensure slave ID is set before each operation
+      client.setID(this.config.slaveId);
       await client.writeCoil(address, value);
       return true;
     }, 'writeCoil');
