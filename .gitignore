@@ -39,3 +39,7 @@ coverage/
 # Misc
 *.tsbuildinfo
 next-env.d.ts
+
+# Modbus user configuration (contains user-specific device settings)
+backend/modbus-config.json
+modbus-config.json

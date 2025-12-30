@@ -159,7 +159,7 @@ export default function Home() {
                   <DooterLogo width={60} height={60} showText={false} />
                 </div>
                 <h1 style={styles.title}>
-                  <span style={styles.titleText}>Equipment Monitoring</span>
+                  <span style={styles.titleText}>Ducorr | Equipment Monitoring</span>
                 </h1>
               </div>
               <div style={styles.headerActions}>
