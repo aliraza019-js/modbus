@@ -1,28 +1,39 @@
 /**
  * IP Address validation utilities for Modbus device configuration
+ * Supports any valid IPv4 address (no hardcoded restrictions)
  */
 
 export class IpValidator {
   /**
-   * Validates if IP address is in the range 192.168.100.1 to 192.168.100.255
+   * Validates if IP address is a valid IPv4 address
+   * No longer restricted to 192.168.100.x range - supports any valid IP
    */
   static isValidModbusIp(ip: string): boolean {
+    return this.isValidIpFormat(ip);
+  }
+
+  /**
+   * Validates IP address format (any valid IPv4)
+   */
+  static isValidIpFormat(ip: string): boolean {
+    if (!ip || typeof ip !== 'string') {
+      return false;
+    }
+
     const ipRegex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-    const match = ip.match(ipRegex);
+    if (!ipRegex.test(ip)) {
+      return false;
+    }
+
+    const parts = ip.split('.').map(Number);
     
-    if (!match) {
+    // Check all parts are valid (0-255) and not NaN
+    if (parts.length !== 4 || parts.some(part => isNaN(part) || part < 0 || part > 255)) {
       return false;
     }
 
-    const [, octet1, octet2, octet3, octet4] = match.map(Number);
-
-    // Check if it's in the 192.168.100.x range
-    if (octet1 !== 192 || octet2 !== 168 || octet3 !== 100) {
-      return false;
-    }
-
-    // Check if last octet is in range 1-255
-    if (octet4 < 1 || octet4 > 255) {
+    // Reject 0.0.0.0 and 255.255.255.255 as invalid device addresses
+    if (ip === '0.0.0.0' || ip === '255.255.255.255') {
       return false;
     }
 
@@ -30,27 +41,14 @@ export class IpValidator {
   }
 
   /**
-   * Validates IP address format
-   */
-  static isValidIpFormat(ip: string): boolean {
-    const ipRegex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-    if (!ipRegex.test(ip)) {
-      return false;
-    }
-
-    const parts = ip.split('.').map(Number);
-    return parts.every(part => part >= 0 && part <= 255);
-  }
-
-  /**
    * Gets formatted error message for invalid IP
    */
   static getIpErrorMessage(ip: string): string {
-    if (!this.isValidIpFormat(ip)) {
-      return `Invalid IP address format: ${ip}`;
+    if (!ip || typeof ip !== 'string') {
+      return `IP address is required`;
     }
-    if (!this.isValidModbusIp(ip)) {
-      return `IP address must be in range 192.168.100.1 to 192.168.100.255. Got: ${ip}`;
+    if (!this.isValidIpFormat(ip)) {
+      return `Invalid IP address format: ${ip}. Must be a valid IPv4 address (e.g., 192.168.1.100)`;
     }
     return '';
   }
